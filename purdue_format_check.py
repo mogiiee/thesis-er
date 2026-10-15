@@ -18,6 +18,7 @@ violation with a stable rule ID and a location.
 
 Usage:
     python3 purdue_format_check.py <file.docx>                              # check a document
+    python3 purdue_format_check.py <file.docx> --json                       # emit machine-readable JSON report
     python3 purdue_format_check.py <file.docx> --selftest                   # prove each rule fires
     python3 purdue_format_check.py <file.docx> --university purdue          # check against a university config
     python3 purdue_format_check.py <file.docx> --config path/to/uni.json   # check against a config file
@@ -1599,6 +1600,27 @@ def report(issues: list[Issue], title: str, limit: int = 12) -> int:
     return len(errors)
 
 
+def serialize_findings(issues: list[Issue], filename: str, university: str = "purdue") -> dict:
+    """Serialize check findings into the JSON report format used by the CLI and /api/check."""
+    groups: dict[str, dict] = {}
+    for i in issues:
+        g = groups.setdefault(i.rule, {"rule": i.rule, "severity": i.severity, "items": []})
+        g["items"].append({"loc": i.loc, "msg": i.msg})
+    findings = sorted(groups.values(), key=lambda g: (g["severity"] != "ERROR", g["rule"]))
+    ada = [g for g in findings if g["rule"].startswith("A11Y")]
+    formatting = [g for g in findings if not g["rule"].startswith("A11Y")]
+    errors = sum(1 for i in issues if i.severity == "ERROR")
+    return {
+        "filename": filename,
+        "university": university,
+        "verdict": "PASS" if errors == 0 else "FAIL",
+        "errors": errors,
+        "infos": len(issues) - errors,
+        "ada": ada,
+        "formatting": formatting,
+    }
+
+
 def check(path: str) -> list[Issue]:
     return Checker(Document(path)).run()
 
@@ -2056,14 +2078,18 @@ def main(argv):
         print(__doc__)
         return 2
     path = argv[1]
+    uni = "purdue"
     for i, a in enumerate(argv[2:], 2):
-        if a == "--university" and i + 1 < len(argv):
-            apply_config(load_university(argv[i + 1]))
-        elif a == "--config" and i + 1 < len(argv):
-            apply_config(load_university(argv[i + 1]))
+        if a in ("--university", "--config") and i + 1 < len(argv):
+            uni = argv[i + 1]
+            apply_config(load_university(uni))
     if "--selftest" in argv:
         return 0 if selftest(path) else 1
     issues = check(path)
+    if "--json" in argv:
+        res = serialize_findings(issues, os.path.basename(path), uni)
+        print(json.dumps(res, indent=2))
+        return 0 if res["errors"] == 0 else 1
     errors = report(issues, f"FORMAT CHECK {path.rsplit('/', 1)[-1]}")
     return 0 if errors == 0 else 1
 

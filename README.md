@@ -22,6 +22,9 @@ Requirements: Python 3.10+, and `pip install -r requirements.txt` (`lxml`, `Pill
 # Check a document — every finding carries a stable rule ID and a location
 python3 purdue_format_check.py MyThesis.docx
 
+# Emit machine-readable JSON report for CI and editor integrations
+python3 purdue_format_check.py MyThesis.docx --json
+
 # Prove every rule fires (mutates a copy of the file, one rule at a time)
 python3 purdue_format_check.py MyThesis.docx --selftest
 

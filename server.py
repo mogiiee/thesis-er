@@ -139,20 +139,10 @@ class Handler(BaseHTTPRequestHandler):
                     os.unlink(tmppath)
                 except OSError:
                     pass
-        groups: dict[str, dict] = {}
-        for i in issues:
-            g = groups.setdefault(i.rule, {"rule": i.rule, "severity": i.severity, "items": []})
-            g["items"].append({"loc": i.loc, "msg": i.msg})
-        findings = sorted(groups.values(), key=lambda g: (g["severity"] != "ERROR", g["rule"]))
-        ada = [g for g in findings if g["rule"].startswith("A11Y")]
-        formatting = [g for g in findings if not g["rule"].startswith("A11Y")]
-        errors = sum(1 for i in issues if i.severity == "ERROR")
-        verdict = "PASS" if errors == 0 else "FAIL"
-        print(f"checked {len(data)} bytes -> {verdict} "
-              f"({errors} errors); temp file deleted, nothing stored", flush=True)
-        self._json(200, {"filename": filename, "university": uni, "verdict": verdict,
-                         "errors": errors, "infos": len(issues) - errors,
-                         "ada": ada, "formatting": formatting})
+        report = pfc.serialize_findings(issues, filename, uni)
+        print(f"checked {len(data)} bytes -> {report['verdict']} "
+              f"({report['errors']} errors); temp file deleted, nothing stored", flush=True)
+        self._json(200, report)
 
 
 if __name__ == "__main__":
