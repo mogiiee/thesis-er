@@ -32,5 +32,15 @@
   "color_share_min": 0.01,
   "chart_max_colors": 32,
   "chroma_min": 40,
-  "area_fill_share": 0.30
+  "area_fill_share": 0.30,
+
+  "body_line_spacing": 360,
+  "body_indent_twips": 720,
+  "figure_gap_above_twips": 480,
+  "table_gap_below_twips": 480,
+  "table_caption_spacing": [480, 120],
+  "figure_caption_spacing": [120, 480],
+  "caption_line_spacing": 240,
+  "reference_hanging_indent_twips": 720,
+  "reference_line_spacings": [240, 360, 480]
 }

@@ -77,6 +77,17 @@ REVISION_TAGS = {"ins", "del", "moveFrom", "moveTo", "rPrChange", "pPrChange", "
                  "trPrChange", "tcPrChange", "numberingChange", "tblGridChange"}
 TABLE_FITS_PT = 580.0  # 9in text height (648pt) minus a two-line table caption with its 24pt/6pt spacing
 
+# Handbook-derived spacing and indentation constants
+BODY_LINE_SPACING = 360  # 1.5 lines (360 twips)
+BODY_INDENT_TWIPS = 720  # 0.5 in (720 twips)
+FIG_GAP_ABOVE = 480      # 24 pt (480 twips)
+TBL_GAP_BELOW = 480      # 24 pt (480 twips)
+TABLE_CAP_SPACING = (480, 120)  # 24 pt before, 6 pt after (twips)
+FIG_CAP_SPACING = (120, 480)    # 6 pt before, 24 pt after (twips)
+CAPTION_LINE_SPACING = 240      # single line spacing (240 twips)
+REF_HANGING_INDENT = 720        # 0.5 in (720 twips)
+REF_LINE_SPACINGS = (240, 360, 480)  # allowed reference line spacings (twips)
+
 
 def q(tag: str) -> str:
     return f"{{{W}}}{tag}"
@@ -181,6 +192,15 @@ _CONFIG_MAP = {
     "chart_max_colors": ("CHART_MAX_COLORS", int),
     "chroma_min": ("CHROMA_MIN", float),
     "area_fill_share": ("AREA_FILL_SHARE", float),
+    "body_line_spacing": ("BODY_LINE_SPACING", int),
+    "body_indent_twips": ("BODY_INDENT_TWIPS", int),
+    "figure_gap_above_twips": ("FIG_GAP_ABOVE", int),
+    "table_gap_below_twips": ("TBL_GAP_BELOW", int),
+    "table_caption_spacing": ("TABLE_CAP_SPACING", lambda v: (int(v[0]), int(v[1]))),
+    "figure_caption_spacing": ("FIG_CAP_SPACING", lambda v: (int(v[0]), int(v[1]))),
+    "caption_line_spacing": ("CAPTION_LINE_SPACING", int),
+    "reference_hanging_indent_twips": ("REF_HANGING_INDENT", int),
+    "reference_line_spacings": ("REF_LINE_SPACINGS", lambda v: tuple(int(x) for x in v)),
 }
 
 
@@ -876,8 +896,8 @@ class Checker:
             if b.pkind in ("body", "list", "ref", "blockquote") or (b.pkind == "empty" and b.zone.startswith("CH")):
                 pass
             if b.pkind == "body" and b.zone not in FRONT_ZONES | LIST_ZONES | NO_INDENT_ZONES:
-                if (line, eff.get("lineRule", "auto")) != (360, "auto"):
-                    self.add("H1.9.SPACING", b, f"line spacing {line}/{eff.get('lineRule')} ; body text must be 1.5 lines (360 auto)")
+                if (line, eff.get("lineRule", "auto")) != (BODY_LINE_SPACING, "auto"):
+                    self.add("H1.9.SPACING", b, f"line spacing {line}/{eff.get('lineRule')} ; body text must be {BODY_LINE_SPACING/240:.1f} lines ({BODY_LINE_SPACING} auto)")
                 if eff.get("jc") not in ("both",):
                     self.add("H1.11.ALIGN", b, f"alignment {eff.get('jc')}; body paragraphs must be justified")
                 fl = eff.get("firstLine", 0) or 0
@@ -885,20 +905,20 @@ class Checker:
                     fl = -eff["hanging"]
                 if b.zone == "ABSTRACT" and fl == 0:
                     pass  # the abstract is a single un-indented paragraph
-                elif fl != 720:
-                    self.add("H1.10.INDENT", b, f"first-line indent {fl/1440:.2f}in; indented paragraphs must use 0.5in")
+                elif fl != BODY_INDENT_TWIPS:
+                    self.add("H1.10.INDENT", b, f"first-line indent {fl/1440:.2f}in; indented paragraphs must use {BODY_INDENT_TWIPS/1440:.2f}in")
                 indents[fl] += 1
                 prev, nxt = d.prev(b), d.next(b)
                 before = eff.get("before", 0) or 0
                 after = eff.get("after", 0) or 0
                 allowed_before = {0}
                 if prev is not None and (prev.kind == "tbl" or prev.pkind in ("figure", "panel", "note")):
-                    allowed_before = {0, 480}
+                    allowed_before = {0, FIG_GAP_ABOVE}
                 if before not in allowed_before:
                     self.add("H1.10.PARASPACE", b, f"spacing before {before/20:.0f}pt; indented paragraphs carry no extra space (0pt, or 24pt right after a table/figure)")
                 allowed_after = {0}
                 if nxt is not None and (nxt.pkind == "figure" or (nxt.kind == "tbl" and nxt.el.find(".//w:drawing", NS) is not None)):
-                    allowed_after = {0, 480}  # the 24pt gap above a figure that follows a paragraph
+                    allowed_after = {0, FIG_GAP_ABOVE}  # the 24pt gap above a figure that follows a paragraph
                 if after not in allowed_after:
                     self.add("H1.10.PARASPACE", b, f"spacing after {after/20:.0f}pt; indented paragraphs carry no extra space")
                 if eff.get("left"):
@@ -906,8 +926,8 @@ class Checker:
             if b.pkind == "empty" and (b.zone.startswith("CH") or b.zone in ("ABSTRACT", "REFERENCES", "ACKNOWLEDGMENTS")):
                 self.add("H1.10.EMPTYPARA", b, "empty paragraph used as spacing; remove it and use paragraph spacing")
             if b.pkind == "list" and b.zone.startswith("CH"):
-                if (line, eff.get("lineRule", "auto")) != (360, "auto"):
-                    self.add("H1.9.SPACING", b, f"list item line spacing {line}; must be 1.5 lines")
+                if (line, eff.get("lineRule", "auto")) != (BODY_LINE_SPACING, "auto"):
+                    self.add("H1.9.SPACING", b, f"list item line spacing {line}; must be {BODY_LINE_SPACING/240:.1f} lines")
                 if eff.get("jc") != "both":
                     self.add("H1.11.ALIGN", b, f"list item alignment {eff.get('jc')}; must be justified")
             if b.zone in ("TITLE", "COMMITTEE", "DEDICATION", "TABLE OF CONTENTS") and b.pkind not in ("major", "pagebreak", "sectbreak", "figure") and b.text:
@@ -1062,8 +1082,8 @@ class Checker:
             if b.pkind == "tablecap":
                 if b.style != "TableCaption":
                     self.add("H1.13.CAPSTYLE", b, f"table caption uses style {b.style or 'Normal'!r}; apply 'Table Caption'")
-                if eff.get("before") != 480 or eff.get("after") != 120:
-                    self.add("H1.13.CAPSPACE", b, f"table caption spacing before={eff.get('before')} after={eff.get('after')}; must be 24pt before, 6pt after")
+                if eff.get("before") != TABLE_CAP_SPACING[0] or eff.get("after") != TABLE_CAP_SPACING[1]:
+                    self.add("H1.13.CAPSPACE", b, f"table caption spacing before={eff.get('before')} after={eff.get('after')}; must be {TABLE_CAP_SPACING[0]//20}pt before, {TABLE_CAP_SPACING[1]//20}pt after")
                 nxt = d.next(b)
                 if nxt is None or nxt.kind != "tbl":
                     self.add("H1.13.CAPORDER", b, "table caption must sit directly above its table")
@@ -1072,13 +1092,13 @@ class Checker:
             else:
                 if b.style != "FigureSchemeCaption":
                     self.add("H1.13.CAPSTYLE", b, f"figure caption uses style {b.style or 'Normal'!r}; apply 'Figure / Scheme Caption'")
-                if eff.get("before") != 120 or eff.get("after") != 480:
-                    self.add("H1.13.CAPSPACE", b, f"figure caption spacing before={eff.get('before')} after={eff.get('after')}; must be 6pt before, 24pt after")
+                if eff.get("before") != FIG_CAP_SPACING[0] or eff.get("after") != FIG_CAP_SPACING[1]:
+                    self.add("H1.13.CAPSPACE", b, f"figure caption spacing before={eff.get('before')} after={eff.get('after')}; must be {FIG_CAP_SPACING[0]//20}pt before, {FIG_CAP_SPACING[1]//20}pt after")
                 prv = d.prev(b)
                 ok = prv is not None and (prv.pkind in ("figure", "panel") or (prv.kind == "tbl" and prv.el.find(".//w:drawing", NS) is not None))
                 if not ok:
                     self.add("H1.13.CAPORDER", b, "figure caption must sit directly below its picture")
-            if (eff.get("line"), eff.get("lineRule", "auto")) != (240, "auto"):
+            if (eff.get("line"), eff.get("lineRule", "auto")) != (CAPTION_LINE_SPACING, "auto"):
                 self.add("H1.13.CAPSPACE", b, f"caption line spacing {eff.get('line')}; must be single")
             lines = line_count(b.text, 12.0, TEXT_WIDTH_PT - ((eff.get("left") or 0) / 20))
             jc = eff.get("jc")
@@ -1147,8 +1167,8 @@ class Checker:
                 prv = d.prev(b)
                 if prv is not None and (prv.kind == "tbl" or prv.pkind in ("body", "list", "note", "sub")):
                     prev_after = d.eff(prv).get("after", 0) if prv.kind == "p" else 0
-                    if (eff.get("before", 0) or 0) < 480 and (prev_after or 0) < 480:
-                        self.add("H1.13.FIGGAP", b, "picture following a paragraph or table needs 24pt spacing above it")
+                    if (eff.get("before", 0) or 0) < FIG_GAP_ABOVE and (prev_after or 0) < FIG_GAP_ABOVE:
+                        self.add("H1.13.FIGGAP", b, f"picture following a paragraph or table needs {FIG_GAP_ABOVE//20}pt spacing above it")
                 nxt = d.next(b)
                 if nxt is None or nxt.pkind != "figcap":
                     if nxt is not None and nxt.pkind in ("figure", "panel"):
@@ -1243,8 +1263,8 @@ class Checker:
                 if nxt is None or nxt.pkind != "figcap":
                     self.add("H1.13.CAPORDER", b, "multi-panel figure table has no figure caption directly below it")
                 prv = d.prev(b)
-                if prv is not None and prv.kind == "p" and prv.pkind in ("body", "list", "note") and (d.eff(prv).get("after", 0) or 0) < 480:
-                    self.add("H1.13.FIGGAP", b, "figure panels following a paragraph need 24pt spacing above (set 24pt after on the preceding paragraph)")
+                if prv is not None and prv.kind == "p" and prv.pkind in ("body", "list", "note") and (d.eff(prv).get("after", 0) or 0) < FIG_GAP_ABOVE:
+                    self.add("H1.13.FIGGAP", b, f"figure panels following a paragraph need {FIG_GAP_ABOVE//20}pt spacing above (set {FIG_GAP_ABOVE//20}pt after on the preceding paragraph)")
                 for dp in b.el.iter(f"{{{WP}}}docPr"):
                     pass
                 continue
@@ -1254,10 +1274,10 @@ class Checker:
             nxt = d.next(b)
             if nxt is not None and nxt.kind == "p":
                 neff = d.eff(nxt)
-                gap_ok = (neff.get("before", 0) or 0) >= 480 or nxt.pkind in ("note", "pagebreak", "sectbreak", "heading1", "major") \
-                    or (nxt.pkind == "sub" and (neff.get("before", 0) or 0) >= 480)
+                gap_ok = (neff.get("before", 0) or 0) >= TBL_GAP_BELOW or nxt.pkind in ("note", "pagebreak", "sectbreak", "heading1", "major") \
+                    or (nxt.pkind == "sub" and (neff.get("before", 0) or 0) >= TBL_GAP_BELOW)
                 if not gap_ok:
-                    self.add("H1.13.TBLAFTER", b, f"no 24pt spacing after the table (next paragraph before={neff.get('before', 0)})")
+                    self.add("H1.13.TBLAFTER", b, f"no {TBL_GAP_BELOW//20}pt spacing after the table (next paragraph before={neff.get('before', 0)})")
             rows = b.el.findall("w:tr", NS)
             if nxt is not None and nxt.pkind == "note" and rows and not all(
                     d.styles.eff_ppr(parse_ppr(p.find("w:pPr", NS))).get("keepNext") for p in rows[-1].iter(q("p"))):
@@ -1419,10 +1439,10 @@ class Checker:
                 expected += 1
                 if int(m.group(1)) != expected:
                     self.add("H1.21.REFNUM", b, f"reference numbered [{m.group(1)}], expected [{expected}] (numerical order)")
-            if eff.get("hanging") != 720:
-                self.add("H1.21.REFHANG", b, f"reference needs a 0.5in hanging indent (found {eff.get('hanging')})")
+            if eff.get("hanging") != REF_HANGING_INDENT:
+                self.add("H1.21.REFHANG", b, f"reference needs a {REF_HANGING_INDENT/1440:.2f}in hanging indent (found {eff.get('hanging')})")
             line = eff.get("line")
-            if line not in (240, 360, 480):
+            if line not in REF_LINE_SPACINGS:
                 self.add("H1.21.REFSPACING", b, f"reference line spacing {line}; must be 1.0, 1.5, or 2.0")
             before, after = eff.get("before", 0) or 0, eff.get("after", 0) or 0
             # single: 0 before, at most 12pt after; 1.5: 0 before, exactly 6pt after
